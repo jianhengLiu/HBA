@@ -96,8 +96,7 @@ void parallel_comp(LAYER &layer, int thread_id, LAYER &next_layer) {
         for (int j = i * GAP; j < i * GAP + WIN_SIZE; j++) {
           if (loop == 0) {
             pcl::PointCloud<PointType>::Ptr pc(new pcl::PointCloud<PointType>);
-            mypcl::loadPointCloud(layer.data_path, pcd_name_fill_num, pc, j,
-                                  "pcd/");
+            mypcl::loadPointCloud(*layer.pcl_filelsits_ptr, pc, j);
             raw_pc[j - i * GAP] = pc;
           }
           src_pc[j - i * GAP] = (*raw_pc[j - i * GAP]).makeShared();
@@ -199,8 +198,7 @@ void parallel_tail(LAYER &layer, int thread_id, LAYER &next_layer) {
         for (int j = i * GAP; j < i * GAP + WIN_SIZE; j++) {
           if (loop == 0) {
             pcl::PointCloud<PointType>::Ptr pc(new pcl::PointCloud<PointType>);
-            mypcl::loadPointCloud(layer.data_path, pcd_name_fill_num, pc, j,
-                                  "pcd/");
+            mypcl::loadPointCloud(*layer.pcl_filelsits_ptr, pc, j);
             raw_pc[j - i * GAP] = pc;
           }
           src_pc[j - i * GAP] = (*raw_pc[j - i * GAP]).makeShared();
@@ -307,8 +305,7 @@ void parallel_tail(LAYER &layer, int thread_id, LAYER &next_layer) {
         for (int j = i * GAP; j < i * GAP + layer.last_win_size; j++) {
           if (loop == 0) {
             pcl::PointCloud<PointType>::Ptr pc(new pcl::PointCloud<PointType>);
-            mypcl::loadPointCloud(layer.data_path, pcd_name_fill_num, pc, j,
-                                  "pcd/");
+            mypcl::loadPointCloud(*layer.pcl_filelsits_ptr, pc, j);
             raw_pc[j - i * GAP] = pc;
           }
           src_pc[j - i * GAP] = (*raw_pc[j - i * GAP]).makeShared();
@@ -490,14 +487,17 @@ int main(int argc, char **argv) {
   ros::NodeHandle nh("~");
 
   int total_layer_num, thread_num;
-  string data_path;
+  string pcl_path, pose_path;
+  int pose_type;
 
   nh.getParam("total_layer_num", total_layer_num);
   nh.getParam("pcd_name_fill_num", pcd_name_fill_num);
-  nh.getParam("data_path", data_path);
+  nh.getParam("pcl_path", pcl_path);
+  nh.getParam("pose_path", pose_path);
+  nh.getParam("pose_type", pose_type);
   nh.getParam("thread_num", thread_num);
-
-  HBA hba(total_layer_num, data_path, thread_num);
+  std::cout << pcl_path << std::endl;
+  HBA hba(total_layer_num, pcl_path, pose_path, pose_type, thread_num);
   for (int i = 0; i < total_layer_num - 1; i++) {
     std::cout << "---------------------" << std::endl;
     distribute_thread(hba.layers[i], hba.layers[i + 1]);

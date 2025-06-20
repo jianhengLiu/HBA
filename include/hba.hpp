@@ -4,6 +4,7 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/Sparse>
 #include <Eigen/SparseCholesky>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <thread>
@@ -26,8 +27,9 @@ public:
       j_upper, tail, thread_num, gap_num, last_win_size, left_gap_num;
   double downsample_size, voxel_size, eigen_ratio, reject_ratio;
 
-  std::string data_path;
+  std::string pcl_path;
   vector<mypcl::pose> pose_vec;
+  std::vector<std::filesystem::path> *pcl_filelsits_ptr;
   std::vector<thread *> mthreads;
   std::vector<double> mem_costs;
 
@@ -125,24 +127,62 @@ public:
   }
 };
 
+bool computePairNum(std::string pair1, std::string pair2) {
+  std::string num1 = pair1.substr(pair1.find_last_of('/'));
+  num1 = num1.substr(num1.find_first_of("0123456789"));
+  num1 = num1.substr(0, num1.find_last_of('.'));
+
+  std::string num2 = pair2.substr(pair2.find_last_of('/'));
+  num2 = num2.substr(num2.find_first_of("0123456789"));
+  num2 = num2.substr(0, num2.find_last_of('.'));
+  return std::stod(num1) < std::stod(num2);
+}
+
+void sort_filelists(std::vector<std::filesystem::path> &filists) {
+  if (filists.empty())
+    return;
+  std::sort(filists.begin(), filists.end(), computePairNum);
+}
+
+void load_file_list(const std::string &dir_path,
+                    std::vector<std::filesystem::path> &out_filelsits) {
+  for (const auto &entry : std::filesystem::directory_iterator(dir_path)) {
+    out_filelsits.emplace_back(entry.path().string());
+  }
+  sort_filelists(out_filelsits);
+  // for (auto &name : out_filelsits) {
+  //   std::cout << name << "\n";
+  // }
+
+  std::cout << "Load " << out_filelsits.size() << " data." << "\n";
+}
+
 class HBA {
 public:
   int thread_num, total_layer_num;
   std::vector<LAYER> layers;
-  std::string data_path;
+  std::filesystem::path pcl_path, pose_path;
+  std::vector<std::filesystem::path> pcl_filelsits;
+  int pose_type;
 
-  HBA(int total_layer_num_, std::string data_path_, int thread_num_) {
+  HBA(int total_layer_num_, std::string pcl_path_, std::string pose_path_,
+      int pose_type_, int thread_num_) {
     total_layer_num = total_layer_num_;
     thread_num = thread_num_;
-    data_path = data_path_;
+    pcl_path = pcl_path_;
+    pose_path = pose_path_;
+    pose_type = pose_type_;
+
+    load_file_list(pcl_path, pcl_filelsits);
 
     layers.resize(total_layer_num);
     for (int i = 0; i < total_layer_num; i++) {
       layers[i].layer_num = i + 1;
       layers[i].thread_num = thread_num;
     }
-    layers[0].data_path = data_path;
-    layers[0].pose_vec = mypcl::read_pose(data_path + "pose.json");
+    layers[0].pcl_path = pcl_path;
+    layers[0].pcl_filelsits_ptr = &pcl_filelsits;
+    layers[0].pose_vec = mypcl::read_pose(pose_path, pose_type_);
     layers[0].init_parameter();
     layers[0].init_storage(total_layer_num);
 
@@ -153,7 +193,8 @@ public:
                                             : (layers[i - 1].left_gap_num + 1);
       layers[i].init_parameter(pose_size_);
       layers[i].init_storage(total_layer_num);
-      layers[i].data_path = layers[i - 1].data_path + "process1/";
+      layers[i].pcl_path = layers[i - 1].pcl_path + "process1/";
+      layers[i].pcl_filelsits_ptr = &pcl_filelsits;
     }
     printf("HBA init done!\n");
   }
@@ -286,7 +327,7 @@ public:
                 Eigen::Quaterniond(pose.rotation().matrix()),
                 pose.translation());
     }
-    mypcl::write_pose(init_pose, data_path);
+    mypcl::write_pose(init_pose, pose_path, pose_type, "_refined");
     printf("pgo complete\n");
   }
 };

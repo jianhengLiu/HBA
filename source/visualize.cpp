@@ -32,6 +32,35 @@
 using namespace std;
 using namespace Eigen;
 
+bool computePairNum(std::string pair1, std::string pair2) {
+  std::string num1 = pair1.substr(pair1.find_last_of('/'));
+  num1 = num1.substr(num1.find_first_of("0123456789"));
+  num1 = num1.substr(0, num1.find_last_of('.'));
+
+  std::string num2 = pair2.substr(pair2.find_last_of('/'));
+  num2 = num2.substr(num2.find_first_of("0123456789"));
+  num2 = num2.substr(0, num2.find_last_of('.'));
+  return std::stod(num1) < std::stod(num2);
+}
+
+void sort_filelists(std::vector<std::filesystem::path> &filists) {
+  if (filists.empty())
+    return;
+  std::sort(filists.begin(), filists.end(), computePairNum);
+}
+
+void load_file_list(const std::string &dir_path,
+                    std::vector<std::filesystem::path> &out_filelsits) {
+  for (const auto &entry : std::filesystem::directory_iterator(dir_path)) {
+    out_filelsits.emplace_back(entry.path().string());
+  }
+  sort_filelists(out_filelsits);
+  for (auto &name : out_filelsits) {
+    std::cout << name << "\n";
+  }
+
+  std::cout << "Load " << out_filelsits.size() << " data." << "\n";
+}
 int main(int argc, char **argv) {
   ros::init(argc, argv, "visualize");
   ros::NodeHandle nh("~");
@@ -47,19 +76,26 @@ int main(int argc, char **argv) {
   ros::Publisher pub_pose_number =
       nh.advertise<visualization_msgs::MarkerArray>("/pose_number", 100);
 
-  string file_path;
+  string pcl_path, pose_path;
+  int pose_type = 0;
   double downsample_size, marker_size;
   int pcd_name_fill_num;
+  int output_merge_pcl;
 
-  nh.getParam("file_path", file_path);
+  nh.getParam("pcl_path", pcl_path);
+  nh.getParam("pose_path", pose_path);
+  nh.getParam("pose_type", pose_type);
+  nh.getParam("output_merge_pcl", output_merge_pcl);
   nh.getParam("downsample_size", downsample_size);
   nh.getParam("pcd_name_fill_num", pcd_name_fill_num);
   nh.getParam("marker_size", marker_size);
 
   sensor_msgs::PointCloud2 debugMsg, cloudMsg, outMsg;
   vector<mypcl::pose> pose_vec;
+  std::vector<std::filesystem::path> pcl_filelsits;
 
-  pose_vec = mypcl::read_pose(file_path + "pose.json");
+  pose_vec = mypcl::read_pose(pose_path, pose_type);
+  load_file_list(pcl_path, pcl_filelsits);
   size_t pose_size = pose_vec.size();
   cout << "pose size " << pose_size << endl;
 
@@ -75,8 +111,10 @@ int main(int argc, char **argv) {
 
   cout << "push enter to view" << endl;
   getchar();
+  pcl::PointCloud<PointType>::Ptr pc_filtered_all(
+      new pcl::PointCloud<PointType>);
   for (size_t i = 0; i < pose_size; i++) {
-    mypcl::loadPointCloud(file_path + "pcd/", pcd_name_fill_num, pc_surf, i);
+    mypcl::loadPointCloud(pcl_filelsits, pc_surf, i);
 
     pcl::PointCloud<PointType>::Ptr pc_filtered(new pcl::PointCloud<PointType>);
     pc_filtered->resize(pc_surf->points.size());
@@ -90,6 +128,10 @@ int main(int argc, char **argv) {
     mypcl::transform_pointcloud(*pc_filtered, *pc_filtered, pose_vec[i].t,
                                 pose_vec[i].q);
     downsample_voxel(*pc_filtered, downsample_size);
+    if (output_merge_pcl) {
+      // append to all point cloud
+      *pc_filtered_all += *pc_filtered;
+    }
 
     pcl::toROSMsg(*pc_filtered, cloudMsg);
     cloudMsg.header.frame_id = "camera_init";
@@ -174,7 +216,16 @@ int main(int argc, char **argv) {
       markerArray.markers.push_back(marker_txt);
     pub_pose_number.publish(markerArray);
 
-    ros::Duration(0.001).sleep();
+    // ros::Duration(0.001).sleep();
+  }
+  if (output_merge_pcl) {
+    // save all point cloud
+    auto out_file =
+        std::filesystem::path(pose_path).replace_extension().string() + ".ply";
+    pcl::io::savePLYFileASCII(out_file, *pc_filtered_all);
+    std::cout << "Saved merged point cloud with "
+              << pc_filtered_all->points.size() << " points to " << out_file
+              << std::endl;
   }
 
   ros::Rate loop_rate(1);
