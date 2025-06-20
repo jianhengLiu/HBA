@@ -105,7 +105,7 @@ void parallel_comp(LAYER& layer, int thread_id, LAYER& next_layer)
           if(loop == 0)
           {
             pcl::PointCloud<PointType>::Ptr pc(new pcl::PointCloud<PointType>);
-            mypcl::loadPCD(layer.data_path, pcd_name_fill_num, pc, j, "pcd/");
+            mypcl::loadPointCloud(layer.data_path, pcd_name_fill_num, pc, j, "pcd/");
             raw_pc[j-i*GAP] = pc;
           }
           src_pc[j-i*GAP] = (*raw_pc[j-i*GAP]).makeShared();
@@ -210,7 +210,7 @@ void parallel_tail(LAYER& layer, int thread_id, LAYER& next_layer)
           if(loop == 0)
           {
             pcl::PointCloud<PointType>::Ptr pc(new pcl::PointCloud<PointType>);
-            mypcl::loadPCD(layer.data_path, pcd_name_fill_num, pc, j, "pcd/");
+            mypcl::loadPointCloud(layer.data_path, pcd_name_fill_num, pc, j, "pcd/");
             raw_pc[j-i*GAP] = pc;
           }
           src_pc[j-i*GAP] = (*raw_pc[j-i*GAP]).makeShared();
@@ -320,7 +320,7 @@ void parallel_tail(LAYER& layer, int thread_id, LAYER& next_layer)
           if(loop == 0)
           {
             pcl::PointCloud<PointType>::Ptr pc(new pcl::PointCloud<PointType>);
-            mypcl::loadPCD(layer.data_path, pcd_name_fill_num, pc, j, "pcd/");
+            mypcl::loadPointCloud(layer.data_path, pcd_name_fill_num, pc, j, "pcd/");
             raw_pc[j-i*GAP] = pc;
           }
           src_pc[j-i*GAP] = (*raw_pc[j-i*GAP]).makeShared();          

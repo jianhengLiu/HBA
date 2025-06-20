@@ -72,7 +72,7 @@ int main(int argc, char** argv)
   getchar();
   for(size_t i = 0; i < pose_size; i++)
   {
-    mypcl::loadPCD(file_path + "pcd/", pcd_name_fill_num, pc_surf, i);
+    mypcl::loadPointCloud(file_path + "pcd/", pcd_name_fill_num, pc_surf, i);
 
     pcl::PointCloud<PointType>::Ptr pc_filtered(new pcl::PointCloud<PointType>);
     pc_filtered->resize(pc_surf->points.size());

@@ -7,6 +7,8 @@
 #include <string>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
 
@@ -27,6 +29,17 @@ namespace mypcl
     Eigen::Vector3d t;
   };
 
+  void loadPLY(std::string filePath, int pcd_fill_num, pcl::PointCloud<PointType>::Ptr& pc, int num,
+               std::string prefix = "")
+  {
+    std::stringstream ss;
+    if(pcd_fill_num > 0)
+      ss << std::setw(pcd_fill_num) << std::setfill('0') << num;
+    else
+      ss << num;
+    pcl::io::loadPLYFile(filePath + prefix + ss.str() + ".ply", *pc);
+  }
+
   void loadPCD(std::string filePath, int pcd_fill_num, pcl::PointCloud<PointType>::Ptr& pc, int num,
                std::string prefix = "")
   {
@@ -36,6 +49,41 @@ namespace mypcl
     else
       ss << num;
     pcl::io::loadPCDFile(filePath + prefix + ss.str() + ".pcd", *pc);
+  }
+
+  // Universal point cloud loader that automatically detects file format
+  void loadPointCloud(std::string filePath, int pcd_fill_num, pcl::PointCloud<PointType>::Ptr& pc, int num,
+                      std::string prefix = "")
+  {
+    std::stringstream ss;
+    if(pcd_fill_num > 0)
+      ss << std::setw(pcd_fill_num) << std::setfill('0') << num;
+    else
+      ss << num;
+    
+    std::string base_name = filePath + prefix + ss.str();
+    std::string pcd_file = base_name + ".pcd";
+    std::string ply_file = base_name + ".ply";
+    
+    // Check if PCD file exists first (since it's the default)
+    std::ifstream pcd_check(pcd_file);
+    if(pcd_check.good()) {
+      pcd_check.close();
+      pcl::io::loadPCDFile(pcd_file, *pc);
+      return;
+    }
+    
+    // If PCD doesn't exist, try PLY
+    std::ifstream ply_check(ply_file);
+    if(ply_check.good()) {
+      ply_check.close();
+      pcl::io::loadPLYFile(ply_file, *pc);
+      return;
+    }
+    
+    // If neither exists, throw an error
+    std::cerr << "Error: Neither PCD file (" << pcd_file << ") nor PLY file (" << ply_file << ") found!" << std::endl;
+    throw std::runtime_error("Point cloud file not found");
   }
 
   void savdPCD(std::string filePath, int pcd_fill_num, pcl::PointCloud<PointType>::Ptr& pc, int num)
